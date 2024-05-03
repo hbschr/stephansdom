@@ -1,0 +1,23 @@
+{
+  "name": "stephansdom",
+  "version": "0.0.0",
+  "author": "",
+  "description": "",
+  "keywords": [],
+  "license": "ISC",
+  "type": "module",
+  "scripts": {
+    "format": "biome format --write src",
+    "lint": "biome check src",
+    "lint:js": "biome lint src",
+    "lint:format": "biome format src",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.7.3",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
