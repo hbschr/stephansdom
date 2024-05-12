@@ -52,10 +52,9 @@ const parseSimpleSelector = (inputStream: InputStream): SimpleSelector => {
 const parseSelectors = (inputStream: InputStream): SimpleSelector[] => {
   const selectors: SimpleSelector[] = [];
   while (inputStream.peek(true) !== "{") {
-    do {
-      selectors.push(parseSimpleSelector(inputStream));
-      // why does this ever evaluate to true?
-    } while (inputStream.peek(true) === "," && inputStream.consume(","));
+    selectors.push(parseSimpleSelector(inputStream));
+    if (inputStream.peek(true) === ",") inputStream.consume(",");
+    else if (inputStream.peek() !== "{") inputStream.croak("unexpected char");
   }
   return selectors;
 };
