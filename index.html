@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<title>stephansdom</title>
+
+<style>
+  body {
+    max-width: 801px;
+    margin: 1px auto;
+    background: #666;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    grid-template-areas: "html stephansdom" "css native";
+    gap: 1px;
+  }
+
+  textarea {
+    background: #333;
+    color: #fff;
+    border: none;
+    margin: 0;
+    padding: 2px;
+  }
+
+  textarea:focus-visible {
+    outline: solid 1px #ccc;
+  }
+
+  canvas {
+    background: #ccc;
+  }
+
+  iframe {
+    background: #ccc;
+    border: none;
+  }
+
+  body {
+    /* canvas default */
+    font: 10px sans-serif;
+  }
+</style>
+
+<textarea id="html" style="grid-area: html">
+&lt;p class=&quot;cls1&quot;&gt;
+  &lt;span&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor&lt;/span&gt;
+  &lt;span&gt;incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.&lt;/span&gt;
+  Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+&lt;/p&gt;
+&lt;div class=&quot;corset&quot;&gt;
+  &lt;p class=&quot;cls2&quot;&gt;&lt;/p&gt;
+  &lt;p class=&quot;cls3&quot;&gt;&lt;/p&gt;
+&lt;/div&gt;
+</textarea>
+<textarea id="css" style="grid-area: css">
+div, p {
+  display: block;
+}
+p {
+  min-height: 10;
+}
+.corset {
+  max-width: 100;
+}
+.cls1 {
+  background-color: red;
+}
+.cls2 {
+  background-color: green;
+}
+.cls3 {
+  background-color: blue;
+}
+</textarea>
+<canvas width="400" height="300" style="grid-area: stephansdom"></canvas>
+<iframe width="400" height="300" style="grid-area: native"></iframe>
+
+<script type="module">
+  import parseHtml from "./src/dom";
+  import parseCss from "./src/css";
+  import styleTree from "./src/style";
+  import { layout, layoutTree } from "./src/layout";
+  import { paint } from "./src/paint";
+
+  const userAgentRules = parseCss("body{display:block;}");
+
+  const render = (html, css, ctx) => {
+    const dom = parseHtml(`<body>${html}</body>`);
+    const rules = userAgentRules.concat(parseCss(css));
+    console.debug(dom, rules);
+    const styleRoot = styleTree(dom, rules);
+    console.debug(styleRoot);
+    const layoutRoot = layoutTree(styleRoot);
+
+    const width = ctx.canvas.clientWidth;
+    const height = ctx.canvas.clientHeight;
+    const viewport = { x: 0, y: 0, width, height: 0 };
+    console.debug(layoutRoot, viewport);
+    layout(layoutRoot, viewport);
+    ctx.clearRect(0, 0, width, height);
+    paint(ctx, layoutRoot);
+  };
+
+  const stephansdomDefault = `
+    body, p {
+      margin: 0;
+    }
+    body {
+      font: 10px sans-serif;
+    }
+  `;
+
+  const native = (html, css, doc) => {
+    const { head, body } = doc;
+
+    for (const style of Array.from(head.getElementsByTagName("style"))) {
+      style.remove();
+    }
+
+    const style = head.appendChild(doc.createElement("style"));
+    style.appendChild(doc.createTextNode(stephansdomDefault));
+    style.appendChild(doc.createTextNode(css));
+
+    // head
+    //   .appendChild(doc.createElement("style"))
+    //   .appendChild(doc.createTextNode(stephansdomDefault));
+    // head
+    //   .appendChild(doc.createElement("style"))
+    //   .appendChild(doc.createTextNode(css));
+
+    body.innerHTML = html;
+  };
+
+  void (() => {
+    const htmlInput = document.querySelector("#html");
+    const cssInput = document.querySelector("#css");
+    const ctx = document.querySelector("canvas").getContext("2d");
+    const nativeDocument = document.querySelector("iframe").contentDocument;
+
+    const update = () => {
+      const html = htmlInput.value;
+      const css = cssInput.value;
+      native(html, css, nativeDocument);
+      render(html, css, ctx);
+    };
+
+    update();
+
+    htmlInput.addEventListener("input", update);
+    cssInput.addEventListener("input", update);
+  })();
+</script>
