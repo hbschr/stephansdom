@@ -1,4 +1,6 @@
+import { isElement } from "./dom";
 import type { StyledNode } from "./style";
+import { measureText } from "./utils";
 
 interface Rect {
   x: number;
@@ -41,6 +43,9 @@ interface Inline extends Dimensions, Pick<StyledNode, "declarations" | "node"> {
 }
 
 export type LayoutBox = Anon | Block | Inline;
+
+const isInlines = (boxes: (Anon | Block)[] | Inline[]): boxes is Inline[] =>
+  Boolean(boxes.length) && boxes[0].type === BoxType.INLINE;
 
 const createAnonBox = (children: Inline[]): Anon => ({
   type: BoxType.ANONYMOUS,
@@ -86,7 +91,9 @@ export const layout = (box: LayoutBox, containingBlock: Rect) => {
     layoutBlock(box, containingBlock);
   }
 
-  // @todo inline
+  if (box.type === BoxType.INLINE) {
+    layoutInline(box, containingBlock);
+  }
 
   return box;
 };
@@ -110,14 +117,76 @@ const layoutBlock = (
   dimensions.y = containingBlock.y + containingBlock.height;
 
   if (children?.length)
-    for (const child of children) {
-      layout(child, dimensions);
-      // update height for following siblings
-      dimensions.height += child.dimensions.height;
-    }
+    if (!isInlines(children))
+      for (const child of children) {
+        layoutBlock(child, dimensions);
+        // update height for following siblings
+        dimensions.height += child.dimensions.height;
+      }
+    else dimensions.height = layoutInlines(children, dimensions).height;
 
   if (declarations?.["min-height"]) {
     const minHeight = Number(declarations["min-height"]);
     if (dimensions.height < minHeight) dimensions.height = minHeight;
   }
+};
+
+const RE_WHITESPACE = /^[ \n\r\t]$/;
+const isWhitespace = RE_WHITESPACE.test.bind(RE_WHITESPACE);
+
+const layoutInline = (
+  { dimensions, node, children }: Inline,
+  containingBlock: Rect,
+) => {
+  dimensions.x = containingBlock.x;
+  dimensions.y = containingBlock.y;
+  if (!isElement(node)) {
+    // skip whitespaces
+    dimensions.width = measureText(node);
+    if (!isWhitespace(node)) dimensions.height = 10; // default font size
+  } else if (children) {
+    const dim = layoutInlines(children as Inline[], containingBlock);
+    dimensions.width = dim.width;
+    dimensions.height = dim.height;
+  }
+};
+
+const layoutInlines = (children: Inline[], containingBlock: Rect): Rect => {
+  let offsetX = 0;
+  let offsetY = 0;
+  let width = 0;
+  let lineHeight = 0;
+
+  for (const child of children) {
+    layoutInline(child, {
+      x: containingBlock.x + offsetX,
+      y: containingBlock.y + offsetY,
+      width: containingBlock.width - offsetX,
+      height: 0,
+    });
+
+    if (offsetX + child.dimensions.width <= containingBlock.width) {
+      lineHeight = Math.max(lineHeight, child.dimensions.height);
+      offsetX += child.dimensions.width;
+    } else {
+      width = Math.max(width, offsetX);
+      offsetX = 0;
+      offsetY += lineHeight;
+      lineHeight = 0;
+      layoutInline(child, {
+        x: containingBlock.x,
+        y: containingBlock.y + offsetY,
+        width: containingBlock.width,
+        height: 0,
+      });
+      lineHeight = Math.max(lineHeight, child.dimensions.height);
+      offsetX += child.dimensions.width;
+    }
+  }
+
+  return {
+    ...containingBlock,
+    width: Math.max(width, offsetX),
+    height: lineHeight + offsetY,
+  };
 };

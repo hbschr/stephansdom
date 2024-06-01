@@ -115,3 +115,83 @@ describe("block layout", () => {
     });
   });
 });
+
+describe("inline layout", () => {
+  const parseSpan = (html) => parse(html, "span{display:inline;}");
+  const parseText = (text) => parse(text, "");
+
+  it("should apply dimensions to text node", () => {
+    // mock implementation of measureText returns string length
+    expect(layout(parseText("n"), rect({ width: 5 }))).toMatchObject({
+      dimensions: { x: 0, y: 0, height: 10, width: 1 },
+    });
+    expect(layout(parseText("nn"), rect({ width: 5 }))).toMatchObject({
+      dimensions: { width: 2 },
+    });
+  });
+
+  it("should apply dimensions to inline parent", () => {
+    expect(
+      layout(parseSpan("<span>n</span>"), rect({ width: 5 })),
+    ).toMatchObject({
+      dimensions: { x: 0, y: 0, width: 1, height: 10 },
+      children: [{ dimensions: { x: 0, y: 0, width: 1, height: 10 } }],
+    });
+  });
+
+  it("should apply height but not width to block parent", () => {
+    expect(
+      layout(parse("<div>n</div>", "div{display:block;}"), rect({ width: 5 })),
+    ).toMatchObject({
+      dimensions: { x: 0, y: 0, width: 5, height: 10 },
+      children: [{ dimensions: { x: 0, y: 0, width: 1, height: 10 } }],
+    });
+  });
+
+  it("should apply dimensions to nested inline elements", () => {
+    expect(
+      layout(
+        parseSpan("<span><span>n</span>nn<span>n</span></span>"),
+        rect({ width: 5 }),
+      ),
+    ).toMatchObject({
+      dimensions: { width: 4, height: 10 },
+      children: [
+        {
+          dimensions: { x: 0, y: 0, width: 1, height: 10 },
+          children: [{ dimensions: { x: 0, y: 0, width: 1, height: 10 } }],
+        },
+        { dimensions: { x: 1, y: 0, width: 2, height: 10 } },
+        {
+          dimensions: { x: 3, y: 0, width: 1, height: 10 },
+          children: [{ dimensions: { x: 3, y: 0, width: 1, height: 10 } }],
+        },
+      ],
+    });
+  });
+
+  it("should overflow on line end", () => {
+    expect(
+      layout(
+        parse(
+          "<span><span>n</span>n<span>n</span></span>",
+          "span{display:inline;}",
+        ),
+        rect({ width: 2 }),
+      ),
+    ).toMatchObject({
+      dimensions: { width: 2, height: 20 },
+      children: [
+        {
+          dimensions: { x: 0, y: 0, width: 1, height: 10 },
+          children: [{ dimensions: { x: 0, y: 0, width: 1, height: 10 } }],
+        },
+        { dimensions: { x: 1, y: 0, width: 1, height: 10 } },
+        {
+          dimensions: { x: 0, y: 10, width: 1, height: 10 },
+          children: [{ dimensions: { x: 0, y: 10, width: 1, height: 10 } }],
+        },
+      ],
+    });
+  });
+});
