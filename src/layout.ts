@@ -25,17 +25,28 @@ interface Dimensions {
   dimensions: Rect; // position of content box relative to document origin
 }
 
+interface Anon extends Dimensions {
+  type: BoxType.ANONYMOUS;
+  children: Inline[];
+}
+
 interface Block extends Dimensions, Pick<StyledNode, "declarations" | "node"> {
   type: BoxType.BLOCK;
-  children?: LayoutBox[];
+  children?: (Anon | Block)[] | Inline[];
 }
 
 interface Inline extends Dimensions, Pick<StyledNode, "declarations" | "node"> {
   type: BoxType.INLINE;
-  children?: LayoutBox[];
+  children?: (Anon | Block)[] | Inline[]; // @todo handle block inside inline
 }
 
-export type LayoutBox = Block | Inline;
+export type LayoutBox = Anon | Block | Inline;
+
+const createAnonBox = (children: Inline[]): Anon => ({
+  type: BoxType.ANONYMOUS,
+  dimensions: rect(),
+  children: [...children],
+});
 
 export const layoutTree = (node: StyledNode): Block | Inline => {
   const display = node.declarations?.display;
@@ -45,22 +56,43 @@ export const layoutTree = (node: StyledNode): Block | Inline => {
     declarations: node.declarations,
     node: node.node,
   };
-  if (node.children) box.children = node.children.map(layoutTree);
+  if (node.children) box.children = layoutChildren(node.children);
   return box;
 };
 
+const layoutChildren = (nodes: StyledNode[]): (Anon | Block)[] | Inline[] => {
+  const blocks: (Anon | Block)[] = [];
+  const inlines: Inline[] = [];
+
+  for (const node of nodes) {
+    const box = layoutTree(node);
+    if (box.type === BoxType.INLINE) inlines.push(box);
+    else {
+      if (inlines.length) {
+        blocks.push(createAnonBox(inlines));
+        inlines.length = 0;
+      }
+      blocks.push(box);
+    }
+  }
+
+  if (!blocks.length) return inlines;
+  if (inlines.length) blocks.push(createAnonBox(inlines));
+  return blocks;
+};
+
 export const layout = (box: LayoutBox, containingBlock: Rect) => {
-  if (box.type === BoxType.BLOCK) {
+  if (box.type === BoxType.ANONYMOUS || box.type === BoxType.BLOCK) {
     layoutBlock(box, containingBlock);
   }
 
-  // @todo inline and anonymous
+  // @todo inline
 
   return box;
 };
 
 const layoutBlock = (
-  { dimensions, declarations, children }: Block,
+  { dimensions, declarations, children }: Anon | Block,
   containingBlock: Rect,
 ) => {
   // block width depends on parent, height on children.

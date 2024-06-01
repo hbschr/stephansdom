@@ -34,6 +34,42 @@ describe("layout tree", () => {
       children: [{ type: BoxType.BLOCK }, { type: BoxType.BLOCK }],
     });
   });
+
+  it("should pass inline children without adding anonymous boxes", () => {
+    expect(
+      parse(
+        "<div><i></i><i></i></div>",
+        "div{display:block;}i{display:inline;}",
+      ),
+    ).toMatchObject({
+      type: BoxType.BLOCK,
+      children: [{ type: BoxType.INLINE }, { type: BoxType.INLINE }],
+    });
+  });
+
+  it("should insert anonymous boxes", () => {
+    expect(
+      parse(
+        "<p><i></i><i></i><p></p><i></i></p>",
+        "p{display:block;}i{display:inline;}",
+      ),
+    ).toMatchObject({
+      type: BoxType.BLOCK,
+      children: [
+        {
+          type: BoxType.ANONYMOUS,
+          children: [{ type: BoxType.INLINE }, { type: BoxType.INLINE }],
+        },
+        { type: BoxType.BLOCK },
+        {
+          type: BoxType.ANONYMOUS,
+          children: [{ type: BoxType.INLINE }],
+        },
+      ],
+    });
+  });
+
+  it.todo("should handle block boxes inside inline", () => {});
 });
 
 describe("block layout", () => {
