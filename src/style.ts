@@ -25,12 +25,7 @@ const styleTree = (node: Node, rules: Rule[]): StyledNode => {
 export default styleTree;
 
 const specifiedValues = (element: Element, rules: Rule[]): Declarations => {
-  let values = {};
-  const matchingRules = matchRules(element, rules);
-  for (const declarations of matchingRules) {
-    values = { ...values, ...declarations };
-  }
-  return values;
+  return matchRules(element, rules).reduce(Object.assign, {});
 };
 
 const matchRules = (element: Element, rules: Rule[]): Declarations[] => {
