@@ -35,6 +35,16 @@ const parse = (input: string): Rule[] => {
 
 export default parse;
 
+const parseSelectors = (inputStream: InputStream): SimpleSelector[] => {
+  const selectors: SimpleSelector[] = [];
+  while (inputStream.peek(true) !== "{") {
+    selectors.push(parseSimpleSelector(inputStream));
+    if (inputStream.peek(true) === ",") inputStream.consume(",");
+    else if (inputStream.peek() !== "{") inputStream.croak("unexpected char");
+  }
+  return selectors;
+};
+
 const parseSimpleSelector = (inputStream: InputStream): SimpleSelector => {
   const selector: SimpleSelector = { tagName: inputStream.readWhile(isAlpha) };
   while (!inputStream.eof() && "#.".includes(inputStream.peek())) {
@@ -47,16 +57,6 @@ const parseSimpleSelector = (inputStream: InputStream): SimpleSelector => {
     }
   }
   return selector;
-};
-
-const parseSelectors = (inputStream: InputStream): SimpleSelector[] => {
-  const selectors: SimpleSelector[] = [];
-  while (inputStream.peek(true) !== "{") {
-    selectors.push(parseSimpleSelector(inputStream));
-    if (inputStream.peek(true) === ",") inputStream.consume(",");
-    else if (inputStream.peek() !== "{") inputStream.croak("unexpected char");
-  }
-  return selectors;
 };
 
 const parseDeclarations = (inputStream: InputStream): Declarations => {
