@@ -9,21 +9,21 @@ const parse = (html: string, css: string): StyledNode =>
 describe("style tree", () => {
   it("should not match empty selector", () => {
     expect(parse("<div></div>", "{display:block;}")).toStrictEqual({
-      node: { tagName: "div" },
+      node: { parent: undefined, tagName: "div" },
       declarations: {},
     });
   });
 
   it("should match tagName", () => {
     expect(parse("<div></div>", "div{display:block;}")).toStrictEqual({
-      node: { tagName: "div" },
+      node: { parent: undefined, tagName: "div" },
       declarations: { display: "block" },
     });
   });
 
   it("should ignore non-matching tagName", () => {
     expect(parse("<div></div>", "span{display:block;}")).toStrictEqual({
-      node: { tagName: "div" },
+      node: { parent: undefined, tagName: "div" },
       declarations: {},
     });
   });
@@ -31,7 +31,7 @@ describe("style tree", () => {
   it("should match id", () => {
     expect(parse('<div id="foo"></div>', "#foo{display:block;}")).toStrictEqual(
       {
-        node: { tagName: "div", attributes: { id: "foo" } },
+        node: { parent: undefined, tagName: "div", attributes: { id: "foo" } },
         declarations: { display: "block" },
       },
     );
@@ -40,7 +40,7 @@ describe("style tree", () => {
   it("should ignore non-matching id", () => {
     expect(parse('<div id="foo"></div>', "#bar{display:block;}")).toStrictEqual(
       {
-        node: { tagName: "div", attributes: { id: "foo" } },
+        node: { parent: undefined, tagName: "div", attributes: { id: "foo" } },
         declarations: {},
       },
     );
@@ -50,7 +50,7 @@ describe("style tree", () => {
     expect(
       parse('<div class="foo"></div>', ".foo{display:block;}"),
     ).toStrictEqual({
-      node: { tagName: "div", attributes: { class: "foo" } },
+      node: { parent: undefined, tagName: "div", attributes: { class: "foo" } },
       declarations: { display: "block" },
     });
   });
@@ -59,7 +59,7 @@ describe("style tree", () => {
     expect(
       parse('<div class="foo"></div>', ".bar{display:block;}"),
     ).toStrictEqual({
-      node: { tagName: "div", attributes: { class: "foo" } },
+      node: { parent: undefined, tagName: "div", attributes: { class: "foo" } },
       declarations: {},
     });
   });

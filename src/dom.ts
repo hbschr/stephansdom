@@ -12,6 +12,7 @@ export type Node = Element | Text;
 export interface Element {
   tagName: string;
   attributes?: Attributes;
+  parent?: Element;
   children?: Node[];
 }
 
@@ -30,9 +31,9 @@ const parse = (input: string): Node => {
 
 export default parse;
 
-const parseNode = (inputStream: InputStream): Node => {
+const parseNode = (inputStream: InputStream, parent?: Element): Node => {
   const char = inputStream.peek();
-  if (char === "<") return parseElement(inputStream);
+  if (char === "<") return parseElement(inputStream, parent);
   return parseText(inputStream);
 };
 
@@ -51,7 +52,7 @@ const parseAttributes = (inputStream: InputStream) => {
   return attributes;
 };
 
-const parseElement = (inputStream: InputStream): Element => {
+const parseElement = (inputStream: InputStream, parent?: Element): Element => {
   // opening tag
   inputStream.consume("<");
   inputStream.readWhitespaces();
@@ -59,9 +60,10 @@ const parseElement = (inputStream: InputStream): Element => {
   const attributes = parseAttributes(inputStream);
   inputStream.consume(">");
 
+  const element: Element = { tagName, parent };
   const children: Node[] = [];
   while (!inputStream.eof() && !inputStream.startsWith("</"))
-    children.push(parseNode(inputStream));
+    children.push(parseNode(inputStream, element));
 
   inputStream.consume("</");
   inputStream.readWhitespaces();
@@ -69,7 +71,6 @@ const parseElement = (inputStream: InputStream): Element => {
   inputStream.readWhitespaces();
   inputStream.consume(">");
 
-  const element: Element = { tagName };
   if (Object.keys(attributes).length) element.attributes = attributes;
   if (children.length) element.children = children;
   return element;

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import parse, { hasClassName, type Node } from "./dom";
+import parse, { hasClassName, type Element } from "./dom";
 
-const test = (input: string, expected: Node) => {
+const test = (input: string, expected: Element) => {
+  if (!Object.hasOwn(expected, "parent")) expected.parent = undefined;
   expect(parse(input)).toStrictEqual(expected);
 };
 
@@ -31,9 +32,10 @@ describe("dom parser", () => {
   });
 
   it("should parse element child", () => {
+    // don't know how to check valid parent since it's a circular reference
     test("<div><span></span></div>", {
       tagName: "div",
-      children: [{ tagName: "span" }],
+      children: [{ parent: expect.anything(), tagName: "span" }],
     });
   });
 
