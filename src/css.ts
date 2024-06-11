@@ -1,10 +1,29 @@
 import InputStream from "./input";
 
+/**
+ * naming differences from "Selectors Level 4":
+ * a "simple selector" is either type, universal, attribute, class or id
+ * selector or a pseudo class. this does not exist here.
+ * a "compound selector" is a combination of simple selectors. this is described
+ * by interface `SimpleSelector` here.
+ * a "complex selector" is a chain of one or more compound selectors separated
+ * by combinators. this is described by type `Selector` here.
+ */
+
 export interface SimpleSelector {
   tagName: string;
   id?: string;
   classNames?: string[];
 }
+
+export enum Combinator {
+  CHILD = ">",
+  DESCENDANT = " ", // " \t\n\r\f"
+  NEXT_SIBLING = "+",
+  SUBSEQUENT_SIBLING = "~",
+}
+
+export type Selector = SimpleSelector | [SimpleSelector, Combinator, Selector];
 
 export type Declarations = Record<string, string>;
 
@@ -13,9 +32,12 @@ export type Declarations = Record<string, string>;
 //   declarations: { display: "block" },
 // };
 export interface Rule {
-  selectors: SimpleSelector[];
+  selectors: Selector[];
   declarations: Declarations;
 }
+
+export const isSimpleSelector = (x: Selector): x is SimpleSelector =>
+  !!x && Object.hasOwn(x, "tagName");
 
 const isAlpha = (char: string) => /[a-z]/.test(char);
 const isAlphaNum = (char: string) => /[a-z0-9]/.test(char);
@@ -35,17 +57,36 @@ const parse = (input: string): Rule[] => {
 
 export default parse;
 
-const parseSelectors = (inputStream: InputStream): SimpleSelector[] => {
-  const selectors: SimpleSelector[] = [];
+const parseSelectors = (inputStream: InputStream): Selector[] => {
+  const selectors: Selector[] = [];
   while (inputStream.peek(true) !== "{") {
-    selectors.push(parseSimpleSelector(inputStream));
+    selectors.push(maybeChain(inputStream, parseSimpleSelector(inputStream)));
     if (inputStream.peek(true) === ",") inputStream.consume(",");
     else if (inputStream.peek() !== "{") inputStream.croak("unexpected char");
   }
   return selectors;
 };
 
+const combinatorMap: Record<string, Combinator> = Object.fromEntries(
+  Object.entries(Combinator).map(([k, v]) => [v, Combinator[k]]),
+);
+
+const maybeChain = (input: InputStream, selector: Selector): Selector => {
+  const whitespaceSpotted = input.peek() === " ";
+  if (
+    combinatorMap[input.peek(true)] ||
+    (whitespaceSpotted && !["{", ","].includes(input.peek(true)))
+  ) {
+    const comb = combinatorMap[input.peek(true)]
+      ? combinatorMap[input.next()]
+      : Combinator.DESCENDANT;
+    return maybeChain(input, [parseSimpleSelector(input), comb, selector]);
+  }
+  return selector;
+};
+
 const parseSimpleSelector = (inputStream: InputStream): SimpleSelector => {
+  inputStream.readWhitespaces();
   const selector: SimpleSelector = { tagName: inputStream.readWhile(isAlpha) };
   while (!inputStream.eof() && "#.".includes(inputStream.peek())) {
     const char = inputStream.next();
@@ -73,12 +114,17 @@ const parseDeclarations = (inputStream: InputStream): Declarations => {
 
 export type Specificity = [number, number, number];
 
-export const specificity = (selector: SimpleSelector): Specificity => {
-  return [
-    selector.id ? 1 : 0,
-    selector.classNames?.length || 0,
-    selector.tagName && selector.tagName !== "*" ? 1 : 0,
-  ];
+export const specificity = (selector: Selector): Specificity => {
+  if (isSimpleSelector(selector))
+    return [
+      selector.id ? 1 : 0,
+      selector.classNames?.length || 0,
+      selector.tagName && selector.tagName !== "*" ? 1 : 0,
+    ];
+  const [subject, _, object] = selector;
+  const s1 = specificity(subject);
+  const s2 = specificity(object);
+  return [s1[0] + s2[0], s1[1] + s2[1], s1[2] + s2[2]];
 };
 
 export const compareSpecificity = (a: Specificity, b: Specificity) => {

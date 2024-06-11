@@ -1,12 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import parse, {
+  Combinator,
   compareSpecificity,
   specificity,
   type Specificity,
 } from "./css";
 
 describe("css parser", () => {
-  it("should parse tag rule", () => {
+  it("should parse simple tag selector", () => {
     expect(parse("div{display:block;}")).toStrictEqual([
       {
         selectors: [{ tagName: "div" }],
@@ -15,7 +16,7 @@ describe("css parser", () => {
     ]);
   });
 
-  it("should parse id rule", () => {
+  it("should parse simple id selector", () => {
     expect(parse("#id{display:block;}")).toStrictEqual([
       {
         selectors: [{ tagName: "", id: "id" }],
@@ -24,7 +25,7 @@ describe("css parser", () => {
     ]);
   });
 
-  it("should parse class rule", () => {
+  it("should parse simple class selector", () => {
     expect(parse(".cls{display:block;}")).toStrictEqual([
       {
         selectors: [{ tagName: "", classNames: ["cls"] }],
@@ -33,13 +34,55 @@ describe("css parser", () => {
     ]);
   });
 
-  it("should parse combined rule", () => {
+  it("should parse a compound selector", () => {
     expect(parse("div#id.cls{display:block;}")).toStrictEqual([
       {
         selectors: [{ tagName: "div", id: "id", classNames: ["cls"] }],
         declarations: { display: "block" },
       },
     ]);
+  });
+
+  it.each([
+    [
+      "child",
+      "div>p{}",
+      [{ tagName: "p" }, Combinator.CHILD, { tagName: "div" }],
+    ],
+    [
+      "descendant",
+      "div p{}",
+      [{ tagName: "p" }, Combinator.DESCENDANT, { tagName: "div" }],
+    ],
+    [
+      "next sibling",
+      "div+p{}",
+      [{ tagName: "p" }, Combinator.NEXT_SIBLING, { tagName: "div" }],
+    ],
+    [
+      "subsequent sibling",
+      "div~p{}",
+      [{ tagName: "p" }, Combinator.SUBSEQUENT_SIBLING, { tagName: "div" }],
+    ],
+    [
+      "chained",
+      "html > body div + p ~ ul {}",
+      [
+        { tagName: "ul" },
+        Combinator.SUBSEQUENT_SIBLING,
+        [
+          { tagName: "p" },
+          Combinator.NEXT_SIBLING,
+          [
+            { tagName: "div" },
+            Combinator.DESCENDANT,
+            [{ tagName: "body" }, Combinator.CHILD, { tagName: "html" }],
+          ],
+        ],
+      ],
+    ],
+  ])("should parse %s combinator", (_, css, expected) => {
+    expect(parse(css)).toMatchObject([{ selectors: [expected] }]);
   });
 
   it("should parse multiple selectors", () => {
@@ -136,10 +179,16 @@ describe("specificity", () => {
     expect(specificity({ tagName: "tag" })).toStrictEqual([0, 0, 1]);
   });
 
-  it("should handle complete selector", () => {
+  it("should handle compound selector", () => {
     expect(
       specificity({ tagName: "tag", id: "id", classNames: ["c2", "c2"] }),
     ).toStrictEqual([1, 2, 1]);
+  });
+
+  it("should sum up complex selector", () => {
+    expect(
+      specificity(parse("div.ls>ul #pivot+.selected~li{}")[0].selectors[0]),
+    ).toStrictEqual([1, 2, 3]);
   });
 
   it("should sort", () => {

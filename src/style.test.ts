@@ -6,6 +6,14 @@ import styleTree, { type StyledNode } from "./style";
 const parse = (html: string, css: string): StyledNode =>
   styleTree(parseHtml(html), parseCss(css));
 
+const noDeclarations = expect.not.objectContaining({
+  declarations: expect.anything(),
+});
+
+const noDisplay = {
+  declarations: expect.not.objectContaining({ display: expect.anything() }),
+};
+
 describe("style tree", () => {
   it("should not match empty selector", () => {
     expect(parse("<div></div>", "{display:block;}")).toStrictEqual({
@@ -73,6 +81,82 @@ describe("style tree", () => {
     ).toMatchObject({
       declarations: { display: "block" },
     });
+  });
+
+  it.each([
+    [
+      "match child",
+      "<div><p></p></div>",
+      "div>p",
+      {
+        children: [{ declarations: { display: "block" } }],
+      },
+    ],
+    [
+      "not match child",
+      "<div><p></p></div>",
+      "body>p",
+      {
+        children: [{ declarations: {} }],
+      },
+    ],
+    [
+      "match descendant",
+      "<div><ul><li></li></ul></div>",
+      "div li",
+      {
+        children: [{ children: [{ declarations: { display: "block" } }] }],
+      },
+    ],
+    [
+      "not match descendant",
+      "<ul><li></li></ul>",
+      "div li",
+      { children: [{ declarations: {} }] },
+    ],
+    [
+      "match next sibling (ignoring text nodes)",
+      "<ul><li></li><li></li> <li></li></ul>",
+      "li+li",
+      {
+        children: [
+          noDisplay,
+          { declarations: { display: "block" } },
+          noDeclarations,
+          { declarations: { display: "block" } },
+        ],
+      },
+    ],
+    [
+      "not match next sibling",
+      "<ul><li></li><div></div><li></li></ul>",
+      "li+li",
+      {
+        children: [noDisplay, noDisplay, noDisplay],
+      },
+    ],
+    [
+      "match subsequent sibling",
+      "<ul><li></li><div></div><li></li></ul>",
+      "li~li",
+      {
+        children: [
+          noDisplay,
+          noDisplay,
+          { declarations: { display: "block" } },
+        ],
+      },
+    ],
+    [
+      "not match subsequent sibling",
+      "<ul><div></div><li></li></ul>",
+      "li~li",
+      {
+        children: [noDisplay, noDisplay],
+      },
+    ],
+  ])("should %s combinator", (_, html, selector, expected) => {
+    expect(parse(html, `${selector}{display:block;}`)).toMatchObject(expected);
   });
 
   it("should overwrite earlier values", () => {
