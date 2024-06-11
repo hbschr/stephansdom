@@ -31,6 +31,11 @@ describe("dom parser", () => {
     });
   });
 
+  it("should allow self closing tags", () => {
+    test("<div/>", { tagName: "div" });
+    test('<div id="id"/>', { tagName: "div", attributes: { id: "id" } });
+  });
+
   it("should parse element child", () => {
     // don't know how to check valid parent since it's a circular reference
     test("<div><span></span></div>", {

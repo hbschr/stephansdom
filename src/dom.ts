@@ -37,9 +37,39 @@ const parseNode = (inputStream: InputStream, parent?: Element): Node => {
   return parseText(inputStream);
 };
 
+const parseElement = (inputStream: InputStream, parent?: Element): Element => {
+  // opening tag
+  inputStream.consume("<");
+  inputStream.readWhitespaces();
+  const tagName = inputStream.readWhile(isAlpha);
+  const attributes = parseAttributes(inputStream);
+  const element: Element = { tagName, parent };
+  if (Object.keys(attributes).length) element.attributes = attributes;
+  if (inputStream.peek(true) === "/") {
+    inputStream.consume("/");
+    return element;
+  }
+  inputStream.consume(">");
+
+  // children
+  const children: Node[] = [];
+  while (!inputStream.eof() && !inputStream.startsWith("</"))
+    children.push(parseNode(inputStream, element));
+  if (children.length) element.children = children;
+
+  // closing tag
+  inputStream.consume("</");
+  inputStream.readWhitespaces();
+  inputStream.consume(tagName);
+  inputStream.readWhitespaces();
+  inputStream.consume(">");
+
+  return element;
+};
+
 const parseAttributes = (inputStream: InputStream) => {
   const attributes: Attributes = {};
-  while (!inputStream.eof(true) && inputStream.peek() !== ">") {
+  while (!inputStream.eof(true) && ![">", "/"].includes(inputStream.peek())) {
     const name = inputStream.readWhile(isAlpha);
     inputStream.readWhitespaces();
     inputStream.consume("=");
@@ -50,30 +80,6 @@ const parseAttributes = (inputStream: InputStream) => {
     attributes[name] = value;
   }
   return attributes;
-};
-
-const parseElement = (inputStream: InputStream, parent?: Element): Element => {
-  // opening tag
-  inputStream.consume("<");
-  inputStream.readWhitespaces();
-  const tagName = inputStream.readWhile(isAlpha);
-  const attributes = parseAttributes(inputStream);
-  inputStream.consume(">");
-
-  const element: Element = { tagName, parent };
-  const children: Node[] = [];
-  while (!inputStream.eof() && !inputStream.startsWith("</"))
-    children.push(parseNode(inputStream, element));
-
-  inputStream.consume("</");
-  inputStream.readWhitespaces();
-  inputStream.consume(tagName);
-  inputStream.readWhitespaces();
-  inputStream.consume(">");
-
-  if (Object.keys(attributes).length) element.attributes = attributes;
-  if (children.length) element.children = children;
-  return element;
 };
 
 const whitespaceCompressRegExp = /[ \n\r\t]+/g;
