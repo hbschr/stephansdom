@@ -1,18 +1,10 @@
 on: push
 jobs:
-  install:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
-      - run: bun install
-  lint:
-    needs: install
-    runs-on: ubuntu-latest
-    steps:
-      - run: bun run lint
   test:
-    needs: install
-    runs-on: ubuntu-latest
+    runs-on: alpine
     steps:
+      - uses: oven-sh/setup-bun@v1
+      - uses: actions/checkout@v4
+      - run: bun install
+      - run: bun run lint
       - run: bun test
