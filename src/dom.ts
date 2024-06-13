@@ -45,8 +45,8 @@ const parseElement = (inputStream: InputStream, parent?: Element): Element => {
   const attributes = parseAttributes(inputStream);
   const element: Element = { tagName, parent };
   if (Object.keys(attributes).length) element.attributes = attributes;
-  if (inputStream.peek(true) === "/") {
-    inputStream.consume("/");
+  if (inputStream.startsWith("/>")) {
+    inputStream.consume("/>");
     return element;
   }
   inputStream.consume(">");

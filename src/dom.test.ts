@@ -32,7 +32,10 @@ describe("dom parser", () => {
   });
 
   it("should allow self closing tags", () => {
-    test("<div/>", { tagName: "div" });
+    expect(parse("<ul><li/><li /></ul>")).toMatchObject({
+      tagName: "ul",
+      children: [{ tagName: "li" }, { tagName: "li" }],
+    });
     test('<div id="id"/>', { tagName: "div", attributes: { id: "id" } });
   });
 
